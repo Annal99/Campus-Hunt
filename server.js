@@ -10,6 +10,7 @@ const CAMPUS = {
   lat: parseFloat(process.env.CAMPUS_LAT) || 15.56754046058862,
   lng: parseFloat(process.env.CAMPUS_LNG) || 74.02761916789012
 };
+const MASTER_KEY = process.env.MASTER_KEY || '';   // set this in Render. If empty, master mode is off.
 
 /* SHOE SPOTS. Each spot is [metres east, metres north] from the campus centre,
    OR a real position like {lat: 15.5676, lng: 74.0277}.
@@ -20,7 +21,8 @@ const NORMAL_MODELS = [1, 2, 7, 8];        // must match CATALOG ids in index.ht
 const LEGEND_IDS = [101, 102, 103, 104];   // must match LEGENDS ids in index.html
 
 const MAX_ACTIVE = 2;                 // Legendary shoes alive at once
-const TTL_MS = 3 * 60 * 1000;         // a Legendary disappears after 3 minutes
+const TTL_MIN_MS = 4 * 60 * 1000;     // a Legendary lives at least 4 minutes
+const TTL_MAX_MS = 6 * 60 * 1000;     // and at most 6 minutes
 const SPAWN_GAP_MS = 30 * 1000;       // gap between Legendary spawns
 const SPOT_COOLDOWN_MS = 2 * 60 * 1000; // a spot rests before reuse
 const CLAIM_RANGE = 60;               // server-side distance check (metres)
@@ -163,7 +165,7 @@ function spawnLegend() {
     shoeId: list[Math.floor(Math.random() * list.length)],
     lat: LSPOTS[spot].lat,
     lng: LSPOTS[spot].lng,
-    expires: now + TTL_MS
+        expires: now + TTL_MIN_MS + Math.floor(Math.random() * (TTL_MAX_MS - TTL_MIN_MS))
   };
   legends.set(l.id, l);
   nextSpawnAt = now + SPAWN_GAP_MS;
@@ -195,8 +197,9 @@ wss.on('connection', function (ws) {
     if (!m || typeof m.t !== 'string') return;
     if (Number.isFinite(m.lat) && Number.isFinite(m.lng)) { c.lat = m.lat; c.lng = m.lng; }
 
-    if (m.t === 'hello' || m.t === 'name') {
+      if (m.t === 'hello' || m.t === 'name') {
       if (m.name) c.name = cleanName(m.name);
+      if (m.t === 'hello' && MASTER_KEY && m.key === MASTER_KEY) send(ws, { t: 'master' });
     } else if (m.t === 'claim') {
       const id = Number(m.id), l = legends.get(id);
       if (!l) return send(ws, { t: 'claim_fail', id: id, reason: 'gone' });
@@ -234,4 +237,7 @@ setInterval(function () {
 server.listen(PORT, '0.0.0.0', function () {
   console.log('Campus Hunt running on port ' + PORT + ' | campus centre ' + CAMPUS.lat + ', ' + CAMPUS.lng);
   console.log('Spots: ' + NORMAL_SPOTS.length + ' normal, ' + HIDDEN_SPOTS.length + ' hidden, ' + LEGEND_SPOTS.length + ' legendary');
+    const base = process.env.RENDER_EXTERNAL_URL || ('http://localhost:' + PORT);
+  console.log('PLAYER LINK: ' + base + '/');
+  console.log(MASTER_KEY ? 'MASTER LINK: ' + base + '/?master=' + encodeURIComponent(MASTER_KEY) : 'Master mode OFF (set MASTER_KEY)');
 });

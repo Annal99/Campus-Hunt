@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Campus Hunt</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--red:#e5202b;--bk:#0b0b0c;--card:#17171a;--line:#2b2b30;--mut:#9a9aa3}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+,[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;overscroll-behavior:none}
+button{font-family:inherit;cursor:pointer}
+.t-normal{--rc:#e8e8ea}.t-legend{--rc:#ffb703}.t-hidden{--rc:#b266ff}
+#app{height:100vh;height:100dvh;max-width:560px;margin:0 auto;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--bk)}
+header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#000;border-bottom:3px solid var(--red);z-index:1300}
+.logo{font:900 22px/1 "Arial Black",Impact,sans-serif;font-style:italic;text-transform:uppercase;letter-spacing:.5px}
+.logo span{color:var(--red);margin-left:6px}
+.pill{background:rgba(0,0,0,.82);border:1px solid var(--line);border-radius:99px;padding:7px 12px;font-weight:700;font-size:13px;color:#fff}
+main{flex:1;position:relative;min-height:0}
+.panel{position:absolute;inset:0;display:none;overflow-y:auto;padding:14px}
+.panel.active{display:block}
+#panel-map{padding:0;overflow:hidden;background:#0d0d10}
+#panel-coach.active{display:flex;flex-direction:column;padding:0}
+h2{font:900 20px "Arial Black",Impact,sans-serif;font-style:italic;text-transform:uppercase;margin:0 0 10px}
+h2 em{color:var(--red);font-style:italic}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.chip{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:#2b2b30;color:var(--mut);border-radius:6px;padding:3px 7px;vertical-align:middle}
+small,.muted{color:var(--mut)}
+
+/* ---------- SHOE IMAGES (real product photos, emoji fallback) ---------- */
+.simg{display:block;width:100%;height:100%;object-fit:contain;border-radius:50%;background:#fff;padding:6px;pointer-events:none;-webkit-user-drag:none;user-select:none}
+.sfb{font-size:30px;line-height:1}
+
+/* ---------- MAP / AR ---------- */
+#map,#gridmap{position:absolute;inset:0;z-index:0;background:#141416;overflow:hidden}
+.leaflet-container{background:#141416;font:inherit}
+#map.no-tiles,#gridmap{background-image:linear-gradient(#26262b 1px,transparent 1px),linear-gradient(90deg,#26262b 1px,transparent 1px);background-size:36px 36px}
+#map.no-tiles .leaflet-tile-pane{visibility:hidden}
+#cam,#cam2{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;background:#0d0d10}
+#panel-map:not(.arview) #cam,#panel-map:not(.arview) #arlayer,#panel-map:not(.arview) #radar{display:none}
+#panel-map.arview #map,#panel-map.arview #gridmap{visibility:hidden}
+#arlayer{position:absolute;inset:0;z-index:1;overflow:hidden;touch-action:none}
+#radar{position:absolute;z-index:1100;right:10px;top:54px;width:96px;height:96px;pointer-events:none}
+.ov{position:absolute;z-index:1200;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.ov>*,.ov .ovr>*{pointer-events:auto}
+.ovr{display:flex;gap:8px}
+.tgl{display:flex;align-items:center;gap:7px}
+.tgl input{accent-color:var(--red);width:17px;height:17px}
+#status{position:absolute;z-index:1200;left:10px;top:54px;max-width:calc(100% - 124px);white-space:pre-line;border-radius:14px;line-height:1.35}
+#arhint{position:absolute;z-index:1200;left:50%;bottom:78px;transform:translateX(-50%);max-width:80%;text-align:center}
+.dpad{position:absolute;right:12px;bottom:12px;z-index:1200;display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:4px}
+.dpad button{border-radius:14px;background:rgba(0,0,0,.85);color:#fff;font-size:19px;border:2px solid var(--red);touch-action:none;user-select:none}
+.dpad button:active{background:var(--red)}
+.me{position:relative;width:24px;height:24px;border-radius:50%;background:var(--red);border:3px solid #fff;box-shadow:0 0 0 7px rgba(229,32,43,.3)}
+.me::before{content:'';position:absolute;left:50%;top:50%;width:80px;height:80px;margin:-40px 0 0 -40px;border-radius:50%;background:conic-gradient(from -28deg,rgba(229,32,43,.5) 0deg,rgba(229,32,43,0) 56deg,rgba(229,32,43,0) 360deg);transform:rotate(var(--hd,0deg));pointer-events:none}
+.drop{position:relative;width:52px;height:52px;border-radius:50%;background:#111;border:3px solid var(--rc);display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px var(--rc);cursor:pointer}
+.drop .simg{padding:3px}
+.drop.t-legend{box-shadow:0 0 22px var(--rc)}
+.drop.t-legend::before{content:'👑';position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-size:16px}
+.drop.t-hidden{background:radial-gradient(circle,#2a0f4a,#000)}
+.tchip{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--rc);border-radius:99px;font:700 10px sans-serif;font-style:normal;padding:1px 6px;white-space:nowrap}
+.drop.inrange{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.22)}}
+.gm-me{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5}
+.gm-ring{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed var(--red);border-radius:50%;background:rgba(229,32,43,.08)}
+.gm-item{position:absolute;transform:translate(-50%,-50%);z-index:4}
+.gm-note{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--mut)}
+/* AR items */
+.ari{position:absolute;left:0;top:0;width:130px;text-align:center;will-change:transform;cursor:pointer}
+.ari .arico{position:relative;width:78px;height:78px;margin:0 auto;border-radius:50%;background:rgba(0,0,0,.55);border:3px solid var(--rc);box-shadow:0 0 22px var(--rc);display:flex;align-items:center;justify-content:center;animation:float 2.4s ease-in-out infinite}
+.ari.t-legend .arico{width:100px;height:100px}
+.ari.t-legend .arico::before{content:'👑';position:absolute;top:-26px;left:50%;transform:translateX(-50%);font-size:26px}
+.ari.t-hidden .arico{background:radial-gradient(circle,#2a0f4a,#000)}
+.ari.t-hidden .sfb{font-size:36px}
+.ari .arlab{display:inline-block;margin-top:6px;background:rgba(0,0,0,.72);border-radius:8px;padding:3px 7px;font-size:11px;font-weight:800;line-height:1.25}
+.ari .arn,.ari .arsub{display:block}
+.ari .arsub{font-weight:600;color:#ddd}
+.ari.inrange .arico{border-color:#22c55e;box-shadow:0 0 28px #22c55e}
+.ari.inrange .arlab{background:#22c55e;color:#000}
+.ari.inrange .arsub{color:#000;font-weight:800}
+@keyframes float{50%{transform:translateY(-10px)}}
+
+/* ---------- NAV / TOAST / MODAL ---------- */
+nav{display:grid;grid-template-columns:repeat(4,1fr);background:#000;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:1300}
+nav button{background:none;border:0;color:var(--mut);padding:9px 0 8px;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.8px;border-top:3px solid transparent;margin-top:-1px}
+nav button span{display:block;font-size:20px;margin-bottom:2px}
+nav button.active{color:#fff;border-top-color:var(--red)}
+#toast{position:absolute;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#fff;color:#000;font-weight:700;font-size:14px;padding:11px 16px;border-radius:12px;z-index:3000;opacity:0;pointer-events:none;transition:.25s;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#modal{position:absolute;inset:0;z-index:2800;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px}
+.mbox{background:var(--card);border:2px solid var(--red);border-radius:20px;padding:22px;max-width:360px;width:100%;text-align:center}
+.micon{font-size:56px;line-height:1}
+.mbox h3{font:900 22px "Arial Black",sans-serif;font-style:italic;text-transform:uppercase;margin:8px 0}
+.mbox p{margin:0 0 12px;color:#ddd}
+.mcode{background:#000;border:2px dashed #ffb703;border-radius:12px;padding:12px;margin:10px 0;font:900 22px "Courier New",monospace;letter-spacing:1px}
+
+/* ---------- CATCH ---------- */
+#catch{position:absolute;inset:0;z-index:2500;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;padding:18px;overflow:hidden}
+.cbox{position:relative;z-index:1;width:100%;max-width:400px;text-align:center}
+#catch.camon{background:rgba(0,0,0,.15)}
+#catch.camon .cbox{background:rgba(0,0,0,.55);border-radius:18px;padding:14px}
+.cshoe{width:170px;height:110px;margin:0 auto;border-radius:18px;background:#fff;padding:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.6);animation:float 2s ease-in-out infinite}
+.cshoe .simg{border-radius:12px;padding:0;background:none}
+.cshoe .sfb{font-size:56px}
+.micon .cshoe{animation:none}
+.rbadge{display:inline-block;background:var(--rc);color:#000;font-weight:900;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:99px}
+.cinfo{font-size:13px;color:#ddd;margin-top:8px;min-height:18px}
+.cwrap{position:relative;margin:12px 0 6px}
+#ccanvas{width:100%;display:block;border-radius:12px;border:2px solid var(--line);background:#111;touch-action:none}
+#cflash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:900 26px "Arial Black",sans-serif;text-shadow:0 2px 10px #000}
+#cflash.ok{color:#22c55e}#cflash.bad{color:#ff5a63}
+#pips{letter-spacing:6px;font-size:18px;margin:6px 0}
+.pip{color:#333}.pip.on{color:var(--red)}
+#tapBtn{width:100%;padding:18px;font:900 26px "Arial Black",sans-serif;background:var(--red);color:#fff;border:0;border-radius:14px;margin-top:8px;touch-action:manipulation;user-select:none}
+#tapBtn:active{transform:scale(.97)}
+#runBtn{background:none;border:0;color:var(--mut);margin-top:14px;font-size:13px;text-decoration:underline}
+#catch.camon #runBtn{color:#fff}
+
+/* ---------- LOCKER / CREW ---------- */
+.bar{height:10px;border-radius:99px;background:#2b2b30;overflow:hidden;margin:6px 0}
+.bar>i{display:block;height:100%;background:var(--red);width:0;transition:width .4s}
+.btn{background:var(--red);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:800}
+.btn.ghost{background:none;border:1px solid var(--line);color:#fff}
+.code{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#000;border:1px dashed var(--red);border-radius:10px;padding:8px 10px;margin-top:8px}
+.prow{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-top:8px}
+.pl{display:flex;align-items:center;gap:8px}
+.pth{width:36px;height:36px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.pth .simg{border-radius:8px;padding:2px;background:none}
+.pth .sfb{font-size:20px}
+.trophy{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding:8px 0;font-size:14px}
+#nameInput{width:100%;margin-top:6px;background:#000;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px}
+.crew{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.crew.mine{border-color:var(--red);background:#220c0e}
+.rank{font:900 20px "Arial Black",sans-serif;width:26px;color:var(--red)}
+.cname{flex:1}.cname b{display:block}
+.cpts{font-weight:900}
+.mini{background:var(--red);color:#fff;border:0;border-radius:8px;padding:7px 10px;font-weight:800;font-size:12px}
+.mini.ghost{background:none;border:1px solid var(--line)}
+.mini:disabled{background:#2b2b30;color:#777}
+.feeditem{border-top:1px solid var(--line);padding:8px 0;font-size:14px}
+
+/* ---------- COACH ---------- */
+#coachLock{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:10px}
+#coachLock .micon{font-size:64px}
+#coachChat{flex:1;min-height:0;display:flex;flex-direction:column}
+#log{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:84%;padding:10px 13px;border-radius:16px;font-size:15px;line-height:1.35;animation:in .25s}
+.msg.bot{background:var(--card);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.user{background:var(--red);align-self:flex-end;border-bottom-right-radius:4px;font-weight:600}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+#opts{padding:10px 14px 14px;display:grid;gap:8px;border-top:1px solid var(--line);background:#000;max-height:42%;overflow-y:auto}
+#opts:empty{display:none}
+.opt{background:var(--card);color:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;font-weight:700;font-size:15px;text-align:left}
+.opt:active{background:var(--red)}
+.scard{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:14px;padding:12px;align-self:stretch}
+.sthumb{width:76px;height:76px;border-radius:14px;background:#fff;flex:none;display:flex;align-items:center;justify-content:center}
+.sthumb .simg{border-radius:12px;padding:4px;background:none}
+.sthumb .sfb{font-size:34px}
+.sbody{flex:1;min-width:0}.sbody p{margin:3px 0 8px;font-size:13px;color:var(--mut)}
+.srow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.price{font-weight:900;margin-right:auto}
+div[hidden],button[hidden],canvas[hidden],section[hidden],span[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">Campus<span>Hunt</span></div>
+    <div class="pill" id="net">⚪ Connecting…</div>
+  </header>
+
+  <main>
+    <!-- HUNT (AR camera view + map view) -->
+    <section class="panel active arview" id="panel-map">
+      <video id="cam" autoplay playsinline muted></video>
+      <div id="map"></div>
+      <div id="gridmap" hidden></div>
+      <div id="arlayer"></div>
+      <canvas id="radar" width="192" height="192"></canvas>
+      <div class="ov">
+        <label class="pill tgl"><input type="checkbox" id="demoToggle"> Demo mode</label>
+        <div class="ovr">
+          <button class="pill" id="viewBtn">🗺️ Map</button>
+          <button class="pill" id="respawn" aria-label="New personal drops">🔄</button>
+        </div>
+      </div>
+      <div class="pill" id="status">Loading…</div>
+      <button class="pill" id="arhint" hidden></button>
+      <div class="dpad" id="dpad">
+        <button data-f="1" style="grid-area:1/2" aria-label="Forward">▲</button>
+        <button data-turn="-1" style="grid-area:2/1" aria-label="Turn left">◀</button>
+        <button data-turn="1" style="grid-area:2/3" aria-label="Turn right">▶</button>
+        <button data-f="-1" style="grid-area:3/2" aria-label="Back">▼</button>
+      </div>
+    </section>
+
+    <!-- LOCKER -->
+    <section class="panel" id="panel-locker">
+      <h2>Your <em>Locker</em></h2>
+      <div class="card"><small>🎟️ YOUR DISCOUNT CODES</small><div id="codes"></div></div>
+      <div class="card"><small>👟 NORMAL SHOES · catch 5 of one model = 10% OFF</small><div id="progress"></div></div>
+      <div class="card"><small>👑 LEGENDARY TROPHIES · each = 20% OFF</small><div id="trophies"></div></div>
+      <div class="card"><small>YOUR TYPE</small><br><b id="archBadge"></b><div id="wish"></div></div>
+      <div class="card"><small>PLAYER NAME (shown to other players)</small><input id="nameInput" maxlength="20"></div>
+      <div class="card">
+        <small>DEMO TOOLS</small><br><br>
+        <button class="btn ghost" id="boostBtn">⚡ Boost a shoe to 4/5</button>
+        <button class="btn ghost" id="hiddenBtn">❓ Spawn hidden shoe</button>
+        <button class="btn ghost" id="resetAll">Reset progress</button>
+      </div>
+      <p><small>Prices are a snapshot from campusshoes.com and may change. Discount codes are random demo codes, not live offers. Shoe photos belong to Campus.</small></p>
+    </section>
+
+    <!-- CREW -->
+    <section class="panel" id="panel-crew">
+      <h2>Crew <em>Board</em> <span class="chip">Mock scores</span></h2>
+      <div class="card"><div id="crewInfo"></div></div>
+      <div id="crewList"></div>
+      <h2 style="font-size:16px;margin-top:14px">Live campus <em>feed</em></h2>
+      <div class="card" id="feed"></div>
+      <p><small>Prototype note: crew scores are hardcoded. The feed is live from the server. A real build needs accounts, a database and moderated chat.</small></p>
+    </section>
+
+    <!-- COACH -->
+    <section class="panel" id="panel-coach">
+      <div id="coachLock">
+        <div class="micon">🔒</div>
+        <h2 style="margin:0">Coach <em>Campus</em></h2>
+        <p class="muted" style="max-width:280px">Coach Campus is hiding inside a <b>Hidden Shoe ❓</b>. Hidden shoes only show up when you're within 100 m. Go find one!</p>
+        <button class="btn" id="goHunt">Take me to the hunt 🗺️</button>
+      </div>
+      <div id="coachChat" hidden>
+        <div id="log"></div>
+        <div id="opts"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <button class="active" data-tab="map"><span>📷</span>Hunt</button>
+    <button data-tab="locker"><span>👟</span>Locker</button>
+    <button data-tab="crew"><span>👥</span>Crew</button>
+    <button data-tab="coach"><span>💬</span>Coach</button>
+  </nav>
+
+  <!-- CATCH GAME -->
+  <div id="catch" hidden>
+    <video id="cam2" autoplay playsinline muted></video>
+    <div class="cbox">
+      <div class="cshoe" id="cimg"></div>
+      <h2 id="cname" style="margin:10px 0 6px">Shoe</h2>
+      <span class="rbadge t-normal" id="crarity">Normal</span>
+      <div class="cinfo" id="cinfo"></div>
+      <div class="cwrap">
+        <canvas id="ccanvas" width="640" height="160"></canvas>
+        <div id="cflash" hidden></div>
+      </div>
+      <div id="pips"></div>
+      <small>Tap (or press Space) when the bar is in the green zone</small>
+      <button id="tapBtn" tabindex="-1">TAP!</button>
+      <button id="runBtn">Run away</button>
+    </div>
+  </div>
+
+  <!-- REWARD / EVENT MODAL -->
+  <div id="modal" hidden>
+    <div class="mbox">
+      <div class="micon" id="micon">🎉</div>
+      <h3 id="mtitle"></h3>
+      <p id="mtext"></p>
+      <div class="mcode" id="mcode" hidden><span id="mcodeText"></span></div>
+      <button class="btn ghost" id="mcopy" hidden>Copy code</button>
+      <button class="btn" id="mok">OK</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var rand = function(a,b){ return a + Math.random()*(b-a); };
+var pick1 = function(a){ return a,[Math.floor(Math.random()*a.length)]; };
+var esc = function(s){ return String(s).replace(/,[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'},[c]; }); };
+var clean = function(s){ return String(s).replace(/,[^A-Z0-9-]/gi,''); };
+
+/* ================= CONFIG ================= */
+var SERVER_URL = '';   // '' = same host that served this page (recommended)
+var CENTER = { lat: 15.567571466324148, lng: 74.0275440660414 };  // fallback only. The server's campus centre overrides this.
+var RANGE = 50;          // metres to catch a shoe
+var STEP = 10;           // demo-mode walking step (m)
+var HIDDEN_VIS = 100;    // hidden shoes only appear within this distance (m)
+var NORMAL_COUNT = 6;    // personal normal shoes kept around you
+var HIDDEN_RESPAWN = 10000;
+var FAR = 350;           // personal drops further than this get recycled near you
+var NEED = 5;            // normal shoes of one model for the 10% code
+var FOV = 62;            // camera field of view used for AR placement (deg)
+var SOLO_TTL = 150000;   // solo-mode Legendary lifetime (ms)
+
+var CATCH = {
+  normal:{ zone:84, speed:190, label:'Normal' },
+  legend:{ zone:36, speed:360, label:'👑 Legendary' }
+};
+
+// REAL Campus model names and prices (snapshot from campusshoes.com, may change).
+// Photos: save them into the /shoes folder using these exact filenames.
+// "fit" tags are our own mapping for the Coach quiz, edit freely.
+var CATALOG = ,[
+  {id:1, name:'FIRST',   price:1149, fit:,['sprinter'],            best:true,  tag:"Men's running shoe", img:'shoes/first.png'},
+  {id:2, name:'MIKE N',  price:1024, fit:,['sprinter','steady'],   best:true,  tag:"Men's running shoe", img:'shoes/mike-n.png'},
+  {id:3, name:'FROTH',   price:1899, fit:,['sprinter','explorer'], best:false, tag:"Men's running shoe", img:'shoes/froth.png'},
+  {id:4, name:'PROJECT', price:1024, fit:,['steady'],              best:false, tag:"Men's running shoe", img:'shoes/project.png'},
+  {id:5, name:'POST',    price:1289, fit:,['steady','sprinter'],   best:false, tag:"Men's running shoe", img:'shoes/post.png'},
+  {id:6, name:'FYBER',   price:1139, fit:,['explorer','sprinter'], best:false, tag:"Men's running shoe", img:'shoes/fyber.png'},
+  {id:7, name:'ENCORE',  price:1399, fit:,['social'],              best:true,  tag:"Men's sneaker",      img:'shoes/encore.png'},
+  {id:8, name:'ESTILO',  price:1299, fit:,['social','steady'],     best:true,  tag:"Men's sneaker",      img:'shoes/estilo.png'}
+];
+var FEATURED = ,[1,2,7,8];   // the 4 models that spawn as normal shoes (so 5-of-a-kind is reachable)
+
+// LEGENDARY (premium) shoes. IDs must match SHOE_IDS in server.js.
+// Replace with Campus's real premium range if you know it.
+var LEGENDS = ,[
+  {id:101, name:'HOLDER', price:2499, tag:"Men's running shoe · premium", img:'shoes/holder.png'},
+  {id:102, name:'RESORT', price:2499, tag:"Men's running shoe · premium", img:'shoes/resort.png'},
+  {id:103, name:'AUREN',  price:2049, tag:"Men's running shoe · premium", img:'shoes/auren.png'},
+  {id:104, name:'AWARD',  price:1999, tag:"Men's running shoe · premium", img:'shoes/award.png'}
+];
+var SHOE = {};
+CATALOG.forEach(function(s){ SHOE,[s.id] = s; });
+LEGENDS.forEach(function(s){ SHOE,[s.id] = s; });
+
+var CREWS = ,[
+  {id:'hh', name:'Hostel Hustlers', pts:1420, members:86},
+  {id:'mm', name:'Midnight Milers', pts:1190, members:64},
+  {id:'ss', name:'Sole Sisters',    pts:980,  members:52},
+  {id:'tt', name:'Trail Tribe',     pts:760,  members:41},
+  {id:'sq', name:'Sprint Squad',    pts:640,  members:33}
+];
+
+var ARCH = {
+  sprinter:{name:'The Sprinter',     emoji:'⚡', tag:'Competitive, goal-driven, always chasing a PB.'},
+  social:  {name:'The Social Mover', emoji:'🔥', tag:'Crew-first and style-conscious.'},
+  explorer:{name:'The Explorer',     emoji:'🧭', tag:'Spontaneous, outdoorsy, allergic to routine.'},
+  steady:  {name:'The Steady Walker',emoji:'🌿', tag:'Consistent, comfort-first, in it for the long run.'}
+};
+var REASON = {
+  sprinter:'A running shoe for your speed-and-goals energy.',
+  social:  'A sharp everyday look made for squad sessions.',
+  explorer:'Built for someone who goes wherever the day goes.',
+  steady:  'A comfortable pick that keeps up with your daily miles.'
+};
+var QUESTIONS = ,[
+  {q:'Perfect Saturday morning? ☀️', opts:,[
+    {t:'A 5K run 🏃', p:{sprinter:2}},
+    {t:'Pickup basketball 🏀', p:{social:2}},
+    {t:'Trek or explore 🥾', p:{explorer:2}},
+    {t:'Chill walk + coffee ☕', p:{steady:2}}]},
+  {q:'What matters most in a shoe?', opts:,[
+    {t:'Feeling light ⚡', p:{sprinter:1}},
+    {t:'Looking sharp 😎', p:{social:1}},
+    {t:'Rugged grip 🏔️', p:{explorer:1}},
+    {t:'All-day comfort ☁️', p:{steady:1}}]},
+  {q:'How do you roll?', opts:,[
+    {t:'Plan everything 📅', p:{sprinter:1,steady:1}},
+    {t:'Go with the flow 🌊', p:{explorer:1,social:1}}]},
+  {q:'How often do you move in a week?', opts:,[
+    {t:'Rarely (0–1 times)', p:{steady:1}},
+    {t:'2–3 times', p:{social:1,explorer:1}},
+    {t:'4+ times 💪', p:{sprinter:2}}]},
+  {q:"Who's your workout squad?", opts:,[
+    {t:'Solo grind 🎧', p:{sprinter:2}},
+    {t:'My whole crew 👯', p:{social:2}},
+    {t:'Me, nature, maybe a dog 🐕', p:{explorer:1,steady:1}}]},
+  {q:'Pick your fit 👀', opts:,[
+    {t:'Performance / techwear', p:{sprinter:1,explorer:1}},
+    {t:'Streetwear', p:{social:2}},
+    {t:'Comfy casuals', p:{steady:2}}]},
+  {q:"What's your budget?", opts:,[
+    {t:'Under ₹1,200', b:1200},
+    {t:'₹1,200 – ₹1,800', b:1800},
+    {t:'₹1,800+ — give me the best', b:99999}]}
+];
+
+/* ================= STATE ================= */
+var KEY = 'campusHunt_v4';
+function defaults(){
+  return {name:'Runner'+Math.floor(100+Math.random()*900), demo:false, view:'ar', normal:{}, totalNormal:0,
+          legendCaught:,[], codes:,[], wish:,[], crew:null, arch:null, hiddenFound:0, lastModel:null};
+}
+function loadState(){
+  var s = defaults();
+  try { var d = JSON.parse(localStorage.getItem(KEY)); if (d && typeof d === 'object') s = Object.assign(s, d); } catch(e){}
+  if (!s.normal || typeof s.normal !== 'object' || Array.isArray(s.normal)) s.normal = {};
+  ,['legendCaught','codes','wish'].forEach(function(k){ if (!Array.isArray(s,[k])) s,[k] = ,[]; });
+  s.codes = s.codes.filter(function(c){ return c && typeof c === 'object' && c.code; });
+  s.demo = !!s.demo; s.view = (s.view === 'map') ? 'map' : 'ar';
+  s.totalNormal = +s.totalNormal || 0; s.hiddenFound = +s.hiddenFound || 0;
+  s.name = String(s.name || 'Runner').slice(0,20);
+  return s;
+}
+var S = loadState();
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+/* ================= HELPERS ================= */
+var toastT;
+function toast(msg, ms){
+  var t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(function(){ t.classList.remove('show'); }, ms || 2800);
+}
+function meters(a,b){
+  var r = Math.PI/180, dLat=(b.lat-a.lat)*r, dLng=(b.lng-a.lng)*r;
+  var x = Math.pow(Math.sin(dLat/2),2) + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.pow(Math.sin(dLng/2),2);
+  return 2*6371000*Math.asin(Math.sqrt(x));
+}
+function bearing(a,b){
+  var r = Math.PI/180, dl = (b.lng-a.lng)*r;
+  var y = Math.sin(dl)*Math.cos(b.lat*r);
+  var x = Math.cos(a.lat*r)*Math.sin(b.lat*r) - Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos(dl);
+  return (Math.atan2(y,x)/r + 360) % 360;
+}
+function offset(p,dx,dy){ // metres east, north
+  return { lat: p.lat + dy/110574, lng: p.lng + dx/(111320*Math.cos(p.lat*Math.PI/180)) };
+}
+function fmtTime(ms){ ms = Math.max(0, Math.round(ms/1000)); return Math.floor(ms/60) + ':' + ('0' + (ms%60)).slice(-2); }
+function genCode(prefix){
+  var A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', s = '';
+  for (var i=0;i<5;i++) s += A.charAt(Math.floor(Math.random()*A.length));
+  return prefix + s;
+}
+function copyText(t){
+  function fb(){ toast('Copy this code: ' + t, 5000); }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function(){ toast('Code copied ✅'); }, fb);
+    else fb();
+  } catch(e){ fb(); }
+}
+
+/* ---- shoe images (real photo, emoji fallback if the file is missing) ---- */
+function imgHtml(id){
+  var s = SHOE,[id];
+  return (s && s.img) ? '<img class="simg" src="' + esc(s.img) + '" alt="' + esc(s.name) + '" draggable="false">' : '<span class="sfb">👟</span>';
+}
+document.addEventListener('error', function(e){
+  var el = e.target;
+  if (el && el.tagName === 'IMG' && el.classList && el.classList.contains('simg')){
+    var s = document.createElement('span'); s.className = 'sfb'; s.textContent = '👟';
+    try { el.replaceWith(s); } catch(err){}
+  }
+}, true);
+
+/* ================= MODAL ================= */
+var modalCb = null;
+function showModal(o){
+  if (o.shoe) $('micon').innerHTML = '<div class="cshoe">' + imgHtml(o.shoe) + '</div>';
+  else $('micon').textContent = o.icon || '🎉';
+  $('mtitle').textContent = o.title || ''; $('mtext').textContent = o.text || '';
+  $('mcode').hidden = !o.code; $('mcodeText').textContent = o.code || ''; $('mcopy').hidden = !o.code;
+  $('mok').textContent = o.btn || 'OK';
+  modalCb = o.onClose || null; $('modal').hidden = false;
+}
+$('mok').addEventListener('click', function(){ $('modal').hidden = true; var cb = modalCb; modalCb = null; if (cb) cb(); });
+$('mcopy').addEventListener('click', function(){ copyText($('mcodeText').textContent); });
+
+/* ================= MAP ADAPTERS ================= */
+function dropHtml(t){
+  var inner = t.kind === 'hidden' ? '<span class="sfb">❓</span>' : imgHtml(t.shoeId);
+  return '<div class="drop t-'+t.kind+'">'+inner+(t.kind === 'legend' ? '<i class="tchip"></i>' : '')+'</div>';
+}
+function createLeafletMap(el){
+  var map = L.map(el,{zoomControl:false, keyboard:false}).setView(,[CENTER.lat,CENTER.lng],17);
+  var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(map);
+  var errs = 0;
+  tiles.on('tileerror', function(){ errs++; if (errs>=3) el.classList.add('no-tiles'); });
+  tiles.on('tileload', function(){ errs = 0; el.classList.remove('no-tiles'); });
+  var me = L.marker(,[CENTER.lat,CENTER.lng],{interactive:false, zIndexOffset:1000,
+    icon:L.divIcon({className:'', html:'<div class="me"></div>', iconSize:,[24,24], iconAnchor:,[12,12]})}).addTo(map);
+  var ring = L.circle(,[CENTER.lat,CENTER.lng],{radius:RANGE, color:'#e5202b', weight:1.5, fillColor:'#e5202b', fillOpacity:.08, interactive:false}).addTo(map);
+  var markers = new Map();
+  return {
+    setPlayer:function(p){ me.setLatLng(,[p.lat,p.lng]); ring.setLatLng(,[p.lat,p.lng]); map.panTo(,[p.lat,p.lng],{animate:false}); },
+    addDrop:function(d,onTap){
+      var m = L.marker(,[d.lat,d.lng],{icon:L.divIcon({className:'', html:dropHtml(d), iconSize:,[52,52], iconAnchor:,[26,26]})}).addTo(map);
+      m.on('click', function(){ onTap(d.id); });
+      markers.set(d.id, m);
+    },
+    removeDrop:function(id){ var m = markers.get(id); if (m){ map.removeLayer(m); markers.delete(id); } },
+    setInRange:function(id,on){ var m = markers.get(id); var e = m && m.getElement(); if (e && e.firstChild) e.firstChild.classList.toggle('inrange',on); },
+    setLabel:function(id,txt){ var m = markers.get(id); var e = m && m.getElement(); var c = e && e.querySelector('.tchip'); if (c) c.textContent = txt; },
+    refresh:function(p){ map.invalidateSize(); map.setView(,[p.lat,p.lng], map.getZoom(), {animate:false}); }
+  };
+}
+function createGridMap(el){
+  el.innerHTML = '<div class="gm-ring"></div><div class="me gm-me"></div><div class="gm-note">Offline map</div>';
+  var SC = 0.55;
+  var ring = el.querySelector('.gm-ring'); ring.style.width = ring.style.height = (RANGE*2*SC)+'px';
+  var nodes = new Map(); var P = {lat:CENTER.lat, lng:CENTER.lng};
+  function layout(){
+    var w = el.clientWidth || 360, h = el.clientHeight || 500;
+    var k = 111320*Math.cos(P.lat*Math.PI/180);
+    nodes.forEach(function(n){
+      n.el.style.left = (w/2 + (n.d.lng-P.lng)*k*SC) + 'px';
+      n.el.style.top  = (h/2 - (n.d.lat-P.lat)*110574*SC) + 'px';
+    });
+    var ox = (P.lng-CENTER.lng)*111320*Math.cos(CENTER.lat*Math.PI/180)*SC;
+    var oy = (P.lat-CENTER.lat)*110574*SC;
+    el.style.backgroundPosition = (-ox)+'px '+oy+'px';
+  }
+  return {
+    setPlayer:function(p){ P = {lat:p.lat,lng:p.lng}; layout(); },
+    addDrop:function(d,onTap){
+      var n = document.createElement('div'); n.className = 'gm-item'; n.innerHTML = dropHtml(d);
+      n.addEventListener('click', function(){ onTap(d.id); });
+      el.appendChild(n); nodes.set(d.id,{el:n,d:d}); layout();
+    },
+    removeDrop:function(id){ var n = nodes.get(id); if (n){ n.el.remove(); nodes.delete(id); } },
+    setInRange:function(id,on){ var n = nodes.get(id); if (n) n.el.firstChild.classList.toggle('inrange',on); },
+    setLabel:function(id,txt){ var n = nodes.get(id); var c = n && n.el.querySelector('.tchip'); if (c) c.textContent = txt; },
+    refresh:function(p){ P = {lat:p.lat,lng:p.lng}; layout(); }
+  };
+}
+var Maps = null;
+try { if (window.L) { Maps = createLeafletMap($('map')); $('gridmap').hidden = true; } } catch(e){ Maps = null; }
+if (!Maps) { $('map').hidden = true; $('gridmap').hidden = false; Maps = createGridMap($('gridmap')); }
+
+/* ================= NETWORK (shared Legendary shoes) ================= */
+var Net = {ws:null, online:false, id:null, players:0, tries:0, timer:null};
+var bootT = Date.now();
+var lastPosSent = 0, claimPending = null, claimTimer = null;
+var feed = ,[];
+
+function wsUrl(){
+  if (SERVER_URL) return SERVER_URL;
+  if (/^https?:$/.test(location.protocol) && location.host) return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  return null;
+}
+function send(o){ if (Net.ws && Net.ws.readyState === 1) { try { Net.ws.send(JSON.stringify(o)); } catch(e){} } }
+function netPos(force){
+  var n = Date.now(); if (!force && n - lastPosSent < 2500) return;
+  lastPosSent = n; send({t:'pos', lat:player.lat, lng:player.lng});
+}
+function netStatus(){
+  var el = $('net');
+  if (Net.online) el.textContent = '🟢 Live · ' + Net.players + ' online';
+  else if (!wsUrl()) el.textContent = '🟠 Solo (no server)';
+  else el.textContent = Net.tries > 0 ? '🟠 Reconnecting…' : '⚪ Connecting…';
+}
+function scheduleRetry(){
+  clearTimeout(Net.timer); Net.tries++;
+  Net.timer = setTimeout(netConnect, Math.min(2500*Net.tries, 15000)); netStatus();
+}
+function netConnect(){
+  var url = wsUrl(); if (!url){ netStatus(); return; }
+  var ws;
+  try { ws = new WebSocket(url); } catch(e){ scheduleRetry(); return; }
+  Net.ws = ws;
+  ws.onopen = function(){ send({t:'hello', name:S.name, lat:player.lat, lng:player.lng, demo:S.demo}); };
+  ws.onmessage = function(ev){ var m; try { m = JSON.parse(ev.data); } catch(e){ return; } if (m && m.t) onNet(m); };
+  ws.onclose = function(){
+    if (Net.ws !== ws) return;
+    Net.online = false; Net.ws = null;
+    Object.keys(T).forEach(function(id){ if (T,[id].srv) removeTarget(id); });   // no ghost Legendaries
+    if (claimPending) abortCatch('Connection lost 📡 Try again');
+    scheduleRetry();
+  };
+  ws.onerror = function(){ try { ws.close(); } catch(e){} };
+}
+setInterval(function(){ send({t:'ping'}); }, 20000);
+
+function pushFeed(text){ feed.unshift({t:text}); if (feed.length > 8) feed.pop(); renderFeed(); }
+function renderFeed(){
+  var box = $('feed'); box.innerHTML = '';
+  if (!feed.length){ box.innerHTML = '<small>Nothing yet. Legendary drops and catches show up here live.</small>'; return; }
+  feed.forEach(function(f){ var d = document.createElement('div'); d.className = 'feeditem'; d.textContent = f.t; box.appendChild(d); });
+}
+function addServerLegend(l){
+  if (!l || !SHOE,[l.shoeId] || T,['L'+l.id]) return;
+  addTarget({id:'L'+l.id, sid:l.id, kind:'legend', shoeId:l.shoeId, lat:l.lat, lng:l.lng, srv:true, expires:Date.now()+(+l.left||0)});
+}
+function onNet(m){
+  var name;
+  switch (m.t){
+    case 'welcome':
+      Net.online = true; Net.id = m.id; Net.players = m.players || 1; Net.tries = 0;
+      if (m.center && isFinite(m.center.lat) && isFinite(m.center.lng)){
+        var moved = meters(CENTER, m.center) > 5;
+        CENTER = {lat:m.center.lat, lng:m.center.lng};
+        if (moved && S.demo){ clearPersonal(); setPlayerPos(CENTER); }
+      }
+      Object.keys(T).forEach(function(id){ if (T,[id].kind === 'legend') removeTarget(id); });   // drop solo/stale ones
+      (m.legends || ,[]).forEach(addServerLegend);
+      netStatus(); toast('Connected 🟢 Everyone now sees the same Legendary shoes');
+      break;
+    case 'players': Net.players = m.n || 0; netStatus(); break;
+    case 'legend_add':
+      addServerLegend(m.s);
+      if (m.s && SHOE,[m.s.shoeId]){
+        name = SHOE,[m.s.shoeId].name;
+        toast('👑 LEGENDARY drop: ' + name + '! Be the first!', 3500);
+        pushFeed('👑 ' + name + ' just dropped on campus');
+        try { if (navigator.vibrate) navigator.vibrate(200); } catch(e){}
+      }
+      break;
+    case 'legend_gone':
+      name = SHOE,[m.shoeId] ? SHOE,[m.shoeId].name : 'Legendary';
+      if (G.drop && G.drop.id === 'L'+m.id && !$('catch').hidden && claimPending !== 'L'+m.id){
+        abortCatch(m.reason === 'claimed' ? '😤 ' + (m.by || 'Someone') + ' got it first!' : '💨 It vanished!');
+      }
+      removeTarget('L'+m.id);
+      if (m.reason === 'claimed') pushFeed((m.byId === Net.id ? '🏆 You' : '🏃 ' + (m.by || 'Someone')) + ' caught ' + name + ' first');
+      else pushFeed('💨 ' + name + ' vanished');
+      break;
+    case 'claim_ok':
+      clearTimeout(claimTimer); claimPending = null;
+      if (G.drop && G.drop.id === 'L'+m.id){ resetGame(); closeCatch(); }
+      grantLegend(m.shoeId, clean(m.code) || genCode('CAMPUS-LEG-'));
+      break;
+    case 'claim_fail':
+      if (claimPending === 'L'+m.id) abortCatch(m.reason === 'far' ? 'Too far from it for the server 📍' : '😤 Too slow! Someone else caught it first');
+      break;
+  }
+}
+
+/* ================= TARGETS (normal / legendary / hidden) ================= */
+var T = {}, tseq = 0, arEls = {};
+function addTarget(t){ t.shown = false; T,[t.id] = t; if (t.kind !== 'hidden') showT(t); markDirty(); updateRange(); }
+function showT(t){
+  if (t.shown) return;
+  Maps.addDrop(t, onTargetTap); t.shown = true;
+  if (t.expires) Maps.setLabel(t.id, fmtTime(t.expires - Date.now()));
+}
+function hideT(t){ if (t.shown){ Maps.removeDrop(t.id); t.shown = false; } }
+function removeTarget(id){
+  var t = T,[id]; if (!t) return;
+  hideT(t); delete T,[id];
+  if (arEls,[id]){ arEls,[id].remove(); delete arEls,[id]; }
+  markDirty(); updateRange();
+}
+function clearPersonal(){ Object.keys(T).forEach(function(id){ if (T,[id].kind !== 'legend') removeTarget(id); }); }
+function countKind(k){ var n = 0; Object.keys(T).forEach(function(id){ if (T,[id].kind === k) n++; }); return n; }
+
+function spawnNormal(){
+  var model = (S.lastModel && FEATURED.indexOf(S.lastModel) >= 0 && Math.random() < 0.55) ? S.lastModel : pick1(FEATURED);
+  var near = Object.keys(T).filter(function(id){ return T,[id].kind === 'normal' && meters(player,T,[id]) < RANGE-5; }).length;
+  var dist = near < 2 ? rand(20,40) : rand(45,200), ang = rand(0, Math.PI*2);
+  var pos = offset(player, Math.cos(ang)*dist, Math.sin(ang)*dist);
+  addTarget({id:'n'+(++tseq), kind:'normal', shoeId:model, lat:pos.lat, lng:pos.lng});
+}
+function spawnHidden(close){
+  var dist = close ? rand(25,45) : rand(45,95), ang = rand(0, Math.PI*2);
+  var pos = offset(player, Math.cos(ang)*dist, Math.sin(ang)*dist);
+  addTarget({id:'h'+(++tseq), kind:'hidden', shoeId:0, lat:pos.lat, lng:pos.lng});
+}
+var hiddenReadyAt = 0, soloNext = 0, farChecked = false;
+function ready(){ return S.demo || firstFix; }
+function maintain(){
+  if (!ready()) return;
+  Object.keys(T).forEach(function(id){
+    var t = T,[id];
+    if (t.kind !== 'legend' && meters(player,t) > FAR) removeTarget(id);   // recycle far drops near you
+  });
+  while (countKind('normal') < NORMAL_COUNT) spawnNormal();
+  if (countKind('hidden') === 0 && Date.now() >= hiddenReadyAt) spawnHidden(false);
+  // solo fallback: local Legendaries when no server is reachable
+  if (!Net.online && Date.now() - bootT > 6000 && Date.now() >= soloNext && countKind('legend') < 2){
+    var l = pick1(LEGENDS), dist = rand(40,160), ang = rand(0, Math.PI*2), pos = offset(player, Math.cos(ang)*dist, Math.sin(ang)*dist);
+    addTarget({id:'S'+(++tseq), kind:'legend', shoeId:l.id, lat:pos.lat, lng:pos.lng, local:true, expires:Date.now()+SOLO_TTL});
+    soloNext = Date.now() + 25000;
+    toast('👑 Solo mode: a Legendary appeared nearby!', 3200);
+  }
+}
+function onTargetTap(id){
+  if (!$('catch').hidden || !$('modal').hidden) return;
+  var t = T,[id]; if (!t) return;
+  var d = meters(player,t);
+  if (d > RANGE){ toast('Too far! Walk ' + Math.round(d-RANGE) + ' m closer 👟'); return; }
+  if (t.kind === 'hidden') foundHidden(t); else startCatch(t);
+}
+
+/* ================= PLAYER, GPS, HEADING ================= */
+var player = {lat:CENTER.lat, lng:CENTER.lng};
+var watchId = null, firstFix = false, gpsAcc = null;
+var heading = 0;
+
+function setHeading(h){
+  heading = ((h % 360) + 360) % 360;
+  document.documentElement.style.setProperty('--hd', heading.toFixed(1) + 'deg');
+  markDirty();
+}
+function setPlayerPos(p){ player = {lat:p.lat, lng:p.lng}; Maps.setPlayer(player); updateRange(); netPos(false); markDirty(); }
+
+function updateRange(){
+  var st = $('status');
+  if (!(S.demo || firstFix)){ st.textContent = '📡 Finding your GPS…\nAllow location access'; return; }
+  var now = Date.now(), nearest = Infinity, cnt = 0, nl = null, nld = Infinity;
+  Object.keys(T).forEach(function(id){
+    var t = T,[id], d = meters(player,t);
+    if (t.kind === 'hidden'){ if (d <= HIDDEN_VIS) showT(t); else hideT(t); }
+    if (t.shown) Maps.setInRange(id, d <= RANGE);
+    if (t.kind === 'hidden' && d > HIDDEN_VIS) return;
+    cnt++; if (d < nearest) nearest = d;
+    if (t.kind === 'legend' && d < nld){ nld = d; nl = t; }
+  });
+  var l1 = nl ? '👑 ' + SHOE,[nl.shoeId].name + ' · ' + (nld <= RANGE ? 'IN RANGE 🔥' : Math.round(nld) + ' m') + ' · ⏱ ' + fmtTime(nl.expires - now)
+              : '👑 No Legendary live right now';
+  var l2 = cnt ? '📍 ' + cnt + ' shoes · closest ' + Math.round(nearest) + ' m' + (!S.demo && gpsAcc !== null ? ' · GPS ±' + Math.round(gpsAcc) + ' m' : '')
+               : 'No shoes nearby';
+  st.textContent = l1 + '\n' + l2;
+}
+function checkFar(){
+  if (farChecked || S.demo || !firstFix || !Net.online) return;
+  var min = Infinity;
+  Object.keys(T).forEach(function(id){ if (T,[id].srv){ var d = meters(player,T,[id]); if (d < min) min = d; } });
+  if (min === Infinity) return;
+  farChecked = true;
+  if (min > 3000) toast('⚠️ Legendary drops are ' + (min/1000).toFixed(1) + ' km away. Set CAMPUS_LAT / CAMPUS_LNG on the server to your campus.', 7000);
+}
+
+// Demo controls: ▲▼ walk along the direction you're facing, ◀▶ turn
+function move(f,turn){
+  if (!S.demo) return;
+  if (turn){ setHeading(heading + turn*8); return; }
+  var a = heading*Math.PI/180;
+  setPlayerPos(offset(player, Math.sin(a)*f*STEP, Math.cos(a)*f*STEP));
+}
+var holdStops = ,[];
+function stopHolds(){ holdStops.forEach(function(f){ f(); }); }
+document.querySelectorAll('#dpad button').forEach(function(btn){
+  var f = +btn.dataset.f || 0, turn = +btn.dataset.turn || 0, t = null;
+  function stop(){ if (t){ clearInterval(t); t = null; } }
+  holdStops.push(stop);
+  btn.addEventListener('pointerdown', function(e){ e.preventDefault(); stop(); move(f,turn); t = setInterval(function(){ move(f,turn); }, 110); });
+  ,['pointerup','pointercancel','pointerleave'].forEach(function(ev){ btn.addEventListener(ev, stop); });
+});
+window.addEventListener('pointerup', stopHolds);
+window.addEventListener('blur', stopHolds);
+
+function stopGPS(){
+  if (watchId !== null && navigator.geolocation){ navigator.geolocation.clearWatch(watchId); }
+  watchId = null; firstFix = false; gpsAcc = null;
+}
+function startGPS(){
+  if (!navigator.geolocation){ toast('GPS not supported here. Switching to Demo mode.'); S.demo = true; save(); applyMode(); return; }
+  firstFix = false; gpsAcc = null; updateRange();
+  watchId = navigator.geolocation.watchPosition(function(pos){
+    if (S.demo) return;
+    gpsAcc = pos.coords.accuracy;
+    var first = !firstFix; firstFix = true;
+    if (!compassOn && typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.speed > 0.5) setHeading(pos.coords.heading);
+    setPlayerPos({lat:pos.coords.latitude, lng:pos.coords.longitude});
+    if (first){ maintain(); netPos(true); toast('GPS locked 📍 Look around for shoes!'); }
+  }, function(err){
+    toast(((err && err.code === 1) ? 'Location permission denied.' : 'Location unavailable.') + ' Switching to Demo mode.');
+    S.demo = true; save(); applyMode();
+  }, {enableHighAccuracy:true, maximumAge:3000, timeout:20000});
+}
+function applyMode(){
+  stopGPS(); clearPersonal();
+  $('demoToggle').checked = S.demo; $('dpad').hidden = !S.demo;
+  setPlayerPos({lat:CENTER.lat, lng:CENTER.lng});
+  if (S.demo){ maintain(); updateRange(); } else startGPS();
+}
+$('demoToggle').addEventListener('change', function(e){ S.demo = e.target.checked; save(); applyMode(); });
+$('respawn').addEventListener('click', function(){
+  if (!$('catch').hidden) return;
+  if (!ready()){ toast('Waiting for GPS first 📡'); return; }
+  clearPersonal(); hiddenReadyAt = 0; maintain(); toast('Fresh personal drops 👟');
+});
+
+/* ================= COMPASS (camera direction) ================= */
+var compassOn = false, compassBound = false, compassAsked = false;
+var needPerm = !!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function');   // iOS
+function tiltHeading(alpha,beta,gamma){
+  var d = Math.PI/180, x = beta*d, y = gamma*d, z = alpha*d;
+  var cY = Math.cos(y), cZ = Math.cos(z), sX = Math.sin(x), sY = Math.sin(y), sZ = Math.sin(z);
+  var Vx = -cZ*sY - sZ*sX*cY, Vy = -sZ*sY + cZ*sX*cY;
+  var h = Math.atan(Vx/Vy);
+  if (Vy < 0) h += Math.PI; else if (Vx < 0) h += 2*Math.PI;
+  return h/d;
+}
+function onOrient(e){
+  var h = null;
+  if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) h = e.webkitCompassHeading;
+  else if (e.alpha != null && e.beta != null && e.gamma != null && (e.absolute || e.type === 'deviceorientationabsolute')) h = tiltHeading(e.alpha,e.beta,e.gamma);
+  if (h === null || isNaN(h)) return;
+  if (!compassOn){ compassOn = true; updateHint(); }
+  var diff = ((h - heading + 540) % 360) - 180;
+  setHeading(heading + diff*0.3);
+}
+function bindCompass(){
+  if (compassBound) return; compassBound = true;
+  window.addEventListener('deviceorientationabsolute', onOrient, true);
+  window.addEventListener('deviceorientation', onOrient, true);
+}
+function askCompass(){
+  if (compassBound) return;
+  if (needPerm){
+    if (compassAsked) return; compassAsked = true;
+    DeviceOrientationEvent.requestPermission().then(function(r){
+      if (r === 'granted') bindCompass(); else toast('Compass blocked. Drag the screen to look around.');
+      updateHint();
+    }).catch(function(){ compassAsked = false; updateHint(); });
+  } else bindCompass();
+}
+document.addEventListener('click', function(){ if (needPerm && !compassBound) askCompass(); });
+
+/* ================= CAMERA ================= */
+var camStream = null, camReq = 0, camBusy = false, camErr = false;
+function wantCam(){ return tab === 'map' && !document.hidden && (S.view === 'ar' || !$('catch').hidden); }
+function startCam(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ camErr = true; updateHint(); return; }
+  var req = ++camReq; camBusy = true;
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false}).then(function(st){
+    if (req !== camReq){ st.getTracks().forEach(function(t){ t.stop(); }); return; }
+    camBusy = false; camStream = st;
+    ,['cam','cam2'].forEach(function(id){ var v = $(id); v.srcObject = st; var p = v.play(); if (p && p.catch) p.catch(function(){}); });
+    $('catch').classList.add('camon'); updateHint();
+  }).catch(function(){ if (req === camReq){ camBusy = false; camErr = true; updateHint(); } });
+}
+function stopCam(){
+  camReq++; camBusy = false;
+  if (camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
+  $('cam').srcObject = null; $('cam2').srcObject = null; $('catch').classList.remove('camon');
+}
+function syncCamera(){
+  var want = wantCam();
+  if (want && !camStream && !camBusy && !camErr) startCam();
+  else if (!want && (camStream || camBusy)) stopCam();
+  else if (want && camStream){ var p = $('cam').play(); if (p && p.catch) p.catch(function(){}); }
+}
+function updateHint(){
+  var el = $('arhint'), msg = '';
+  if (tab === 'map' && S.view === 'ar'){
+    if (camErr) msg = '📷 Camera unavailable. Allow camera access, then tap here';
+    else if (needPerm && !compassBound) msg = '🧭 Tap to enable compass';
+    else if (!compassOn) msg = '👆 Drag to look around';
+  }
+  el.textContent = msg; el.hidden = !msg;
+}
+$('arhint').addEventListener('click', function(){ if (camErr){ camErr = false; syncCamera(); } askCompass(); updateHint(); });
+document.addEventListener('visibilitychange', syncCamera);
+window.addEventListener('pagehide', stopCam);
+
+/* ================= AR RENDER (real shoe photos floating in the camera + radar) ================= */
+var arDirty = true;
+function markDirty(){ arDirty = true; }
+var al = $('arlayer'), drag = null, dragMoved = false;
+al.addEventListener('pointerdown', function(e){ drag = {sx:e.clientX, x:e.clientX}; dragMoved = false; });
+al.addEventListener('pointermove', function(e){
+  if (!drag) return;
+  if (Math.abs(e.clientX - drag.sx) > 8) dragMoved = true;
+  if (dragMoved && !compassOn) setHeading(heading - (e.clientX - drag.x)*0.15);
+  drag.x = e.clientX;
+});
+,['pointerup','pointercancel','pointerleave'].forEach(function(ev){ al.addEventListener(ev, function(){ drag = null; }); });
+al.addEventListener('click', function(e){
+  if (dragMoved) return;
+  var el = e.target.closest('.ari'); if (el) onTargetTap(el.dataset.id);
+});
+
+function renderAR(){
+  var w = al.clientWidth, h = al.clientHeight; if (!w || !h) return;
+  var ok = S.demo || firstFix, seen = {};
+  if (ok) Object.keys(T).forEach(function(id){
+    var t = T,[id], d = meters(player,t);
+    if (t.kind === 'hidden' && d > HIDDEN_VIS) return;
+    seen,[id] = 1;
+    var el = arEls,[id];
+    if (!el){
+      el = document.createElement('div'); el.className = 'ari t-' + t.kind; el.dataset.id = id;
+      el.innerHTML = '<div class="arico"></div><div class="arlab"><span class="arn"></span><span class="arsub"></span></div>';
+      el.querySelector('.arico').innerHTML = t.kind === 'hidden' ? '<span class="sfb">❓</span>' : imgHtml(t.shoeId);
+      el.querySelector('.arn').textContent = t.kind === 'hidden' ? 'Hidden shoe' : SHOE,[t.shoeId].name;
+      el._sub = el.querySelector('.arsub'); al.appendChild(el); arEls,[id] = el;
+    }
+    var delta = ((bearing(player,t) - heading + 540) % 360) - 180;
+    if (Math.abs(delta) > FOV/2 + 12){ el.style.display = 'none'; return; }
+    el.style.display = '';
+    var x = w/2 + delta/FOV*w;
+    var y = h*(0.60 - Math.min(d,160)/160*0.22);
+    var sc = Math.max(0.6, Math.min(1.25, 1.3 - d/150));
+    el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) translate(-50%,-50%) scale(' + sc.toFixed(2) + ')';
+    el.style.zIndex = String(1000 - Math.round(d));
+    el.classList.toggle('inrange', d <= RANGE);
+    el._sub.textContent = (d <= RANGE ? 'TAP! 🔥' : Math.round(d) + ' m') + (t.expires ? ' · ⏱ ' + fmtTime(t.expires - Date.now()) : '');
+  });
+  Object.keys(arEls).forEach(function(id){ if (!seen,[id]){ arEls,[id].remove(); delete arEls,[id]; } });
+}
+var rctx = $('radar').getContext('2d');
+function renderRadar(){
+  var c = rctx, cx = 96, cy = 96, R = 88, RM = 200, TAU = Math.PI*2;
+  c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,192,192);
+  c.fillStyle = 'rgba(0,0,0,.62)'; c.beginPath(); c.arc(cx,cy,R+4,0,TAU); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 2;
+  c.beginPath(); c.arc(cx,cy,R,0,TAU); c.stroke(); c.beginPath(); c.arc(cx,cy,R/2,0,TAU); c.stroke();
+  c.fillStyle = 'rgba(229,32,43,.30)'; c.beginPath(); c.moveTo(cx,cy);
+  c.arc(cx,cy,R,(-90-FOV/2)*Math.PI/180,(-90+FOV/2)*Math.PI/180); c.closePath(); c.fill();
+  var na = -heading*Math.PI/180;
+  c.fillStyle = '#fff'; c.font = 'bold 18px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('N', cx + Math.sin(na)*(R-10), cy - Math.cos(na)*(R-10));
+  if (S.demo || firstFix) Object.keys(T).forEach(function(id){
+    var t = T,[id], d = meters(player,t);
+    if (t.kind === 'hidden' && d > HIDDEN_VIS) return;
+    var a = (bearing(player,t) - heading)*Math.PI/180, r = Math.min(d,RM)/RM*(R-8);
+    var x = cx + Math.sin(a)*r, y = cy - Math.cos(a)*r;
+    c.fillStyle = t.kind === 'legend' ? '#ffb703' : (t.kind === 'hidden' ? '#b266ff' : '#ffffff');
+    c.beginPath(); c.arc(x,y,t.kind === 'legend' ? 9 : 6,0,TAU); c.fill();
+    if (t.kind === 'legend'){ c.strokeStyle = '#000'; c.lineWidth = 2; c.stroke(); }
+  });
+  c.fillStyle = '#e5202b'; c.beginPath(); c.arc(cx,cy,6,0,TAU); c.fill();
+  c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke();
+}
+function arFrame(){
+  requestAnimationFrame(arFrame);
+  if (!arDirty) return; arDirty = false;
+  if (tab !== 'map' || S.view !== 'ar') return;
+  renderAR(); renderRadar();
+}
+
+function setView(v){
+  S.view = v; save();
+  $('panel-map').classList.toggle('arview', v === 'ar');
+  $('viewBtn').textContent = v === 'ar' ? '🗺️ Map' : '📷 AR';
+  if (v === 'ar') camErr = false;
+  setTimeout(function(){ Maps.refresh(player); }, 30);
+  markDirty(); syncCamera(); updateHint();
+}
+$('viewBtn').addEventListener('click', function(){ setView(S.view === 'ar' ? 'map' : 'ar'); });
+
+/* ================= CATCH MINI-GAME ================= */
+var W = 320, H = 80;
+var ctx = $('ccanvas').getContext('2d');
+function freshG(){ return {running:false, raf:0, pos:0, dir:1, speed:0, zoneX:0, zoneW:0, attempts:3, lock:false, drop:null, last:0, timers:,[]}; }
+var G = freshG();
+function later(fn,ms){
+  var id = setTimeout(function(){ G.timers = G.timers.filter(function(t){ return t !== id; }); fn(); }, ms);
+  G.timers.push(id);
+}
+function resetGame(){ cancelAnimationFrame(G.raf); G.timers.forEach(clearTimeout); G = freshG(); flash(''); }
+function closeCatch(){ $('catch').hidden = true; syncCamera(); }
+function abortCatch(msg){
+  clearTimeout(claimTimer); claimPending = null;
+  resetGame(); closeCatch(); if (msg) toast(msg);
+}
+function flash(text,cls){ var e = $('cflash'); e.textContent = text; e.className = cls || ''; e.hidden = !text; }
+function renderPips(){
+  var h = ''; for (var i=0;i<3;i++) h += '<span class="pip'+(i<G.attempts?' on':'')+'">●</span>';
+  $('pips').innerHTML = h;
+}
+function newZone(){ G.zoneX = rand(14, W-14-G.zoneW); }
+function draw(){
+  ctx.setTransform(2,0,0,2,0,0); ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#1d1d21'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#22c55e'; ctx.fillRect(G.zoneX, 14, G.zoneW, H-28);
+  ctx.fillStyle = '#fff'; ctx.fillRect(G.pos-3, 6, 6, H-12);
+}
+function loop(t){
+  if (!G.running) return;
+  var dt = Math.min((t - G.last)/1000, 0.05); G.last = t;
+  if (!G.lock){
+    G.pos += G.dir * G.speed * dt;
+    if (G.pos >= W){ G.pos = W; G.dir = -1; }
+    if (G.pos <= 0){ G.pos = 0; G.dir = 1; }
+  }
+  draw(); G.raf = requestAnimationFrame(loop);
+}
+function startCatch(t){
+  resetGame();
+  var shoe = SHOE,[t.shoeId], cfg = CATCH,[t.kind];
+  G.drop = t; G.zoneW = cfg.zone; G.speed = cfg.speed; G.attempts = 3; G.pos = 0; G.dir = 1;
+  newZone(); renderPips();
+  $('cimg').innerHTML = imgHtml(t.shoeId);
+  $('cname').textContent = shoe.name;
+  var rb = $('crarity'); rb.textContent = cfg.label; rb.className = 'rbadge t-' + t.kind;
+  $('cinfo').textContent = t.kind === 'legend'
+    ? 'First to catch it wins a 20% OFF code!'
+    : 'Catch ' + NEED + ' of these for 10% OFF · you have ' + (S.normal,[t.shoeId] || 0) + '/' + NEED;
+  $('catch').hidden = false; syncCamera();
+  G.running = true; G.last = performance.now(); G.raf = requestAnimationFrame(loop);
+}
+function tapCatch(){
+  if (!G.running || G.lock) return;
+  var hit = G.pos >= G.zoneX && G.pos <= G.zoneX + G.zoneW;
+  G.lock = true;
+  if (hit){ flash('NAILED IT! 🔥','ok'); later(function(){ finishCatch(true); }, 700); }
+  else {
+    G.attempts--; renderPips();
+    if (G.attempts <= 0){ flash('IT GOT AWAY 💨','bad'); later(function(){ finishCatch(false); }, 850); }
+    else { flash('MISS!','bad'); later(function(){ G.lock = false; flash(''); newZone(); }, 450); }
+  }
+}
+function finishCatch(win){
+  var drop = G.drop;
+  if (win && drop && drop.kind === 'legend' && drop.srv){
+    // The server decides who was first
+    if (!Net.online){ abortCatch('Connection lost 📡 Try again'); return; }
+    G.running = false; cancelAnimationFrame(G.raf); G.lock = true;
+    flash('CLAIMING… ⏳','ok'); claimPending = drop.id;
+    send({t:'claim', id:drop.sid, lat:player.lat, lng:player.lng});
+    clearTimeout(claimTimer);
+    claimTimer = setTimeout(function(){ if (claimPending) abortCatch('Server too slow. Try again 📡'); }, 7000);
+    return;
+  }
+  resetGame(); closeCatch();
+  if (!win || !drop){ toast('It escaped! Try again 👟💨'); return; }
+  if (drop.kind === 'legend'){ removeTarget(drop.id); grantLegend(drop.shoeId, genCode('CAMPUS-LEG-')); }   // solo-mode Legendary
+  else onNormalCaught(drop);
+}
+$('tapBtn').addEventListener('pointerdown', function(e){ e.preventDefault(); tapCatch(); });
+$('runBtn').addEventListener('click', function(){ abortCatch('You ran away 🏃'); });
+
+/* ================= REWARDS ================= */
+function renderAll(){ renderLocker(); renderCrew(); }
+function grantLegend(shoeId, code){
+  var s = SHOE,[shoeId]; if (!s) return;
+  S.legendCaught.push({shoeId:shoeId, code:code, ts:Date.now()});
+  S.codes.unshift({code:code, pct:20, label:s.name + ' (Legendary)'});
+  save(); renderAll();
+  showModal({shoe:shoeId, title:'LEGENDARY CAUGHT!', text:'You beat everyone to the ' + s.name + '. Your 20% OFF code:', code:code, btn:'Sweet! 🔥'});
+}
+function onNormalCaught(t){
+  var id = t.shoeId, s = SHOE,[id];
+  removeTarget(t.id);
+  S.normal,[id] = (S.normal,[id] || 0) + 1; S.totalNormal++; S.lastModel = id;
+  var n = S.normal,[id];
+  if (n >= NEED){
+    S.normal,[id] = 0;
+    var code = genCode('CAMPUS-10-');
+    S.codes.unshift({code:code, pct:10, label:s.name});
+    save(); renderAll();
+    showModal({shoe:id, title:NEED + ' × ' + s.name + '!', text:'Set complete. Here is your 10% OFF code for the ' + s.name + ':', code:code, btn:'Nice!'});
+  } else {
+    save(); renderAll(); toast('Caught ' + s.name + '! (' + n + '/' + NEED + ')');
+  }
+}
+function foundHidden(t){
+  removeTarget(t.id); hiddenReadyAt = Date.now() + HIDDEN_RESPAWN;
+  S.hiddenFound++; save();
+  showModal({icon:'❓', title:'HIDDEN SHOE FOUND!', text:'Coach Campus was hiding inside. Answer a few quick questions and get your perfect pair.', btn:"Let's go 💬",
+    onClose:function(){ resetCoach(); showTab('coach'); }});
+}
+
+/* ================= LOCKER ================= */
+function thumbRow(id, right){
+  var s = SHOE,[id]; if (!s) return '';
+  return '<div class="trophy"><span class="pl"><span class="pth">'+imgHtml(id)+'</span><b>'+esc(s.name)+'</b></span><small>'+right+'</small></div>';
+}
+function renderLocker(){
+  $('archBadge').textContent = (S.arch && ARCH,[S.arch]) ? ARCH,[S.arch].emoji + ' ' + ARCH,[S.arch].name : 'Find a hidden shoe ❓ to discover it';
+  if (document.activeElement !== $('nameInput')) $('nameInput').value = S.name;
+  $('codes').innerHTML = S.codes.map(function(c){
+    var cc = clean(c.code);
+    return '<div class="code"><div><b>🎟️ '+cc+'</b><br><small>'+esc(c.pct)+'% OFF · '+esc(c.label)+' · demo only</small></div><button class="mini" data-copy="'+cc+'">Copy</button></div>';
+  }).join('') || '<p style="margin:8px 0 0"><small>No codes yet. Catch 5 of one shoe, or grab a Legendary 👑</small></p>';
+  $('progress').innerHTML = FEATURED.map(function(id){
+    var n = S.normal,[id] || 0;
+    return '<div class="prow"><span class="pl"><span class="pth">'+imgHtml(id)+'</span><b>'+esc(SHOE,[id].name)+'</b></span><span>'+n+' / '+NEED+'</span></div><div class="bar"><i style="width:'+Math.min(100,n/NEED*100)+'%"></i></div>';
+  }).join('');
+  $('trophies').innerHTML = S.legendCaught.length
+    ? S.legendCaught.map(function(e){ return thumbRow(e.shoeId, clean(e.code)); }).join('')
+    : '<p style="margin:8px 0 0"><small>None yet. Be the first to reach a Legendary drop!</small></p>';
+  $('wish').innerHTML = S.wish.length
+    ? '<p style="margin:10px 0 4px"><small>⭐ Saved from Coach:</small></p>' + S.wish.map(function(id){ var s = SHOE,[id]; return s ? thumbRow(id, '₹'+s.price.toLocaleString('en-IN')) : ''; }).join('')
+    : '';
+}
+$('codes').addEventListener('click', function(e){ var b = e.target.closest(',[data-copy]'); if (b) copyText(b.dataset.copy); });
+$('nameInput').addEventListener('change', function(){
+  S.name = (this.value.replace(/,[<>&"']/g,'').trim().slice(0,20)) || 'Runner'; this.value = S.name; save(); send({t:'name', name:S.name});
+});
+$('boostBtn').addEventListener('click', function(){
+  var best = FEATURED,[0];
+  FEATURED.forEach(function(id){ if ((S.normal,[id]||0) > (S.normal,[best]||0)) best = id; });
+  S.normal,[best] = Math.max(S.normal,[best] || 0, NEED-1); save(); renderLocker();
+  toast(SHOE,[best].name + ' is now ' + S.normal,[best] + '/' + NEED + '. Catch one more!');
+});
+$('hiddenBtn').addEventListener('click', function(){
+  if (!ready()){ toast('Waiting for GPS first 📡'); return; }
+  Object.keys(T).forEach(function(id){ if (T,[id].kind === 'hidden') removeTarget(id); });
+  spawnHidden(true); showTab('map'); toast('Hidden shoe spawned nearby ❓');
+});
+$('resetAll').addEventListener('click', function(){
+  if (!confirm('Reset all demo progress?')) return;
+  var keep = {demo:S.demo, name:S.name, view:S.view};
+  try { localStorage.removeItem(KEY); } catch(e){}
+  S = defaults(); S.demo = keep.demo; S.name = keep.name; S.view = keep.view; save();
+  clearTimeout(C.timer); $('log').innerHTML = ''; $('opts').innerHTML = ''; C = newCoach();
+  clearPersonal(); hiddenReadyAt = 0; renderAll(); showTab('map'); toast('Progress reset');
+});
+$('goHunt').addEventListener('click', function(){ showTab('map'); });
+
+/* ================= CREW (mock scores + live feed) ================= */
+function renderCrew(){
+  var mine = S.totalNormal*10 + S.legendCaught.length*100;
+  var rows = CREWS.map(function(c){ return {id:c.id, name:c.name, members:c.members, total:c.pts + (S.crew===c.id ? mine : 0)}; })
+                  .sort(function(a,b){ return b.total - a.total; });
+  var cur = CREWS.filter(function(c){ return c.id === S.crew; }),[0];
+  $('crewInfo').innerHTML = cur
+    ? "<b>You're in "+esc(cur.name)+"</b><br><small>You've added "+mine+" pts (normal = 10, Legendary = 100)</small>"
+    : '<b>No crew yet</b><br><small>Join one below. Normal catch = 10 pts, Legendary = 100 pts.</small>';
+  $('crewList').innerHTML = rows.map(function(c,i){
+    var me = S.crew === c.id;
+    return '<div class="crew'+(me?' mine':'')+'"><div class="rank">'+(i+1)+'</div>'
+      + '<div class="cname"><b>'+esc(c.name)+'</b><small>'+(c.members+(me?1:0))+' members</small></div>'
+      + '<div class="cpts">'+c.total+'</div>'
+      + '<button class="mini'+(me?' ghost':'')+'" data-crew="'+c.id+'">'+(me?'Leave':'Join Crew')+'</button></div>';
+  }).join('');
+}
+$('crewList').addEventListener('click', function(e){
+  var b = e.target.closest(',[data-crew]'); if (!b) return;
+  var id = b.dataset.crew; S.crew = (S.crew === id) ? null : id; save(); renderCrew();
+  toast(S.crew ? 'Joined the crew! 🔥' : 'Left the crew');
+});
+
+/* ================= COACH CAMPUS (unlocked by Hidden Shoes) ================= */
+function newCoach(){ return {step:0, scores:{sprinter:0,social:0,explorer:0,steady:0}, budget:99999, busy:false, timer:null}; }
+var C = newCoach();
+function say(text,who){
+  var d = document.createElement('div'); d.className = 'msg ' + (who || 'bot'); d.textContent = text;
+  $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight;
+}
+function resetCoach(){
+  clearTimeout(C.timer); C = newCoach();
+  $('log').innerHTML = ''; $('opts').innerHTML = '';
+  say("You found me! 👋 I'm Coach Campus. " + QUESTIONS.length + " quick questions and I'll find your perfect pair. No wrong answers!");
+  C.busy = true; C.timer = setTimeout(function(){ C.busy = false; ask(); }, 700);
+}
+function ask(){
+  if (C.step >= QUESTIONS.length) return showResults();
+  var q = QUESTIONS,[C.step];
+  say('(' + (C.step+1) + '/' + QUESTIONS.length + ') ' + q.q);
+  var box = $('opts'); box.innerHTML = '';
+  q.opts.forEach(function(o){
+    var b = document.createElement('button'); b.className = 'opt'; b.textContent = o.t;
+    b.addEventListener('click', function(){ pick(o); });
+    box.appendChild(b);
+  });
+}
+function pick(o){
+  if (C.busy) return; C.busy = true;
+  say(o.t, 'user'); $('opts').innerHTML = '';
+  if (o.p) for (var k in o.p) C.scores,[k] += o.p,[k];
+  if (o.b) C.budget = o.b;
+  C.step++; C.timer = setTimeout(function(){ C.busy = false; ask(); }, 450);
+}
+function shoeCard(s, why){
+  var d = document.createElement('div'); d.className = 'scard';
+  d.innerHTML = '<div class="sthumb">' + imgHtml(s.id) + '</div><div class="sbody"><b></b><p></p><div class="srow"><span class="price"></span>'
+    + '<button class="mini save">Save</button><button class="mini ghost store">Find in store</button></div></div>';
+  d.querySelector('b').textContent = s.name;
+  d.querySelector('p').textContent = why;
+  d.querySelector('.price').textContent = '₹' + s.price.toLocaleString('en-IN');
+  var sv = d.querySelector('.save');
+  function isSaved(){ return S.wish.indexOf(s.id) >= 0; }
+  if (isSaved()){ sv.textContent = 'Saved ✓'; sv.disabled = true; }
+  sv.addEventListener('click', function(){
+    if (isSaved()) return;
+    S.wish.push(s.id); save(); sv.textContent = 'Saved ✓'; sv.disabled = true; renderLocker(); toast('Saved to your Locker ⭐');
+  });
+  d.querySelector('.store').addEventListener('click', function(){ toast('📍 Store locator opens here (mock)'); });
+  return d;
+}
+function showResults(){
+  C.busy = true;
+  var order = ,['sprinter','social','explorer','steady'];
+  var ranked = order.slice().sort(function(a,b){ return C.scores,[b] - C.scores,[a]; });
+  var type = ranked,[0], second = ranked,[object Object],, cap = C.budget, A = ARCH,[type];
+  S.arch = type; save(); renderLocker();
+  function rank(s){
+    var g = s.fit.indexOf(type) >= 0 ? 0 : (s.fit.indexOf(second) >= 0 ? 1 : 2);
+    return g*1000 + (s.price > cap ? 500 : 0) + (s.best ? 0 : 100) + s.price/100;
+  }
+  var forYou = CATALOG.slice().sort(function(a,b){ return rank(a)-rank(b); }).slice(0,3);
+  var top = CATALOG.filter(function(s){ return s.best && forYou.indexOf(s) < 0; }).slice(0,3);
+  if (top.length < 3) top = top.concat(CATALOG.filter(function(s){ return forYou.indexOf(s) < 0 && top.indexOf(s) < 0; })).slice(0,3);
+  say('Reading your vibe… 🧠');
+  C.timer = setTimeout(function(){
+    var log = $('log');
+    say("You're " + A.name + ' ' + A.emoji); say(A.tag);
+    say('🎯 3 picks made for YOU:');
+    forYou.forEach(function(s){ var why = s.fit.indexOf(type) >= 0 ? REASON,[type] : REASON,[second]; log.appendChild(shoeCard(s, why + ' · ' + s.tag)); });
+    say('🔥 3 more top picks to try:');
+    top.forEach(function(s){ log.appendChild(shoeCard(s, 'Top pick · ' + s.tag)); });
+    say('Prices are a snapshot from campusshoes.com and may change. Find another hidden shoe ❓ to retake the quiz!');
+    var box = $('opts'); box.innerHTML = '';
+    var b = document.createElement('button'); b.className = 'opt'; b.textContent = 'Back to the hunt 🗺️';
+    b.addEventListener('click', function(){ showTab('map'); }); box.appendChild(b);
+    log.scrollTop = log.scrollHeight;
+  }, 800);
+}
+function renderCoachTab(){
+  var unlocked = S.hiddenFound > 0;
+  $('coachLock').hidden = unlocked; $('coachChat').hidden = !unlocked;
+  if (unlocked && $('log').children.length === 0){
+    say(S.arch ? "Welcome back! You're " + ARCH,[S.arch].name + ' ' + ARCH,[S.arch].emoji + '. Find another hidden shoe ❓ to retake the quiz.' : 'Find a hidden shoe ❓ to start the quiz.');
+    var box = $('opts'); box.innerHTML = '';
+    var b = document.createElement('button'); b.className = 'opt'; b.textContent = 'Back to the hunt 🗺️';
+    b.addEventListener('click', function(){ showTab('map'); }); box.appendChild(b);
+  }
+}
+
+/* ================= TABS ================= */
+var tab = 'map';
+function showTab(name){
+  tab = name;
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active', p.id === 'panel-' + name); });
+  document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
+  if (name === 'map') setTimeout(function(){ Maps.refresh(player); markDirty(); }, 30);
+  if (name === 'locker') renderLocker();
+  if (name === 'crew'){ renderCrew(); renderFeed(); }
+  if (name === 'coach') renderCoachTab();
+  markDirty(); syncCamera(); updateHint();
+}
+document.querySelectorAll('nav button').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
+
+/* ================= KEYBOARD / RESIZE / TICK ================= */
+window.addEventListener('keydown', function(e){
+  if (!$('modal').hidden) return;
+  if (!$('catch').hidden){
+    if ((e.code === 'Space' || e.key === ' ' || e.key === 'Enter') && !e.repeat){ e.preventDefault(); tapCatch(); }
+    return;
+  }
+  if (tab === 'map' && S.demo){
+    var m = {ArrowUp:,[1,0], ArrowDown:,[-1,0], ArrowLeft:,[0,-1], ArrowRight:,[0,1]},[e.key];
+    if (m){ e.preventDefault(); move(m,[0], m,[1]); }
+  }
+});
+window.addEventListener('resize', function(){ if (tab === 'map') Maps.refresh(player); markDirty(); });
+
+function tick(){
+  var now = Date.now();
+  Object.keys(T).forEach(function(id){
+    var t = T,[id]; if (!t.expires) return;
+    var left = t.expires - now;
+    if (left <= 0){
+      if (G.drop && G.drop.id === id && !$('catch').hidden && claimPending !== id) abortCatch('💨 It vanished!');
+      removeTarget(id);
+    } else if (t.shown) Maps.setLabel(id, fmtTime(left));
+  });
+  maintain(); updateRange(); checkFar(); markDirty();
+}
+
+/* ================= INIT ================= */
+renderAll(); renderFeed(); netStatus();
+$('panel-map').classList.toggle('arview', S.view === 'ar');
+$('viewBtn').textContent = S.view === 'ar' ? '🗺️ Map' : '📷 AR';
+if (!needPerm) bindCompass();   // Android/desktop: no permission prompt needed. iOS: after a tap.
+applyMode();
+showTab('map');
+netConnect();
+setInterval(tick, 1000);
+requestAnimationFrame(arFrame);
+setTimeout(function(){ toast(S.demo ? 'Demo mode: ▲▼ walk, ◀▶ turn 👟' : 'Allow location + camera, then look around for shoes! 📍', 3500); }, 600);
+})();
+</script>
+</body>
+</html>

@@ -15,12 +15,6 @@ const CAMPUS = {
    OR a real position like {lat: 15.5676, lng: 74.0277}.
    Tip: right-click a real walkable spot in Google Maps, copy the numbers, and
    replace an entry with {lat:..., lng:...}. Keep spots 25 m or more apart. */
-const NORMAL_SPOTS = [
-  [50, 0], [25, 43], [-25, 43], [-50, 0], [-25, -43], [25, -43],
-  [100, 0], [71, 71], [0, 100], [-71, 71], [-100, 0], [-71, -71], [0, -100], [71, -71]
-];
-const HIDDEN_SPOTS = [[130, -60], [-120, -110], [45, 110]];
-const LEGEND_SPOTS = [[135, 60], [-110, 100], [-150, -40], [70, -135], [-30, -145], [10, 140]];
 
 const NORMAL_MODELS = [1, 2, 7, 8];        // must match CATALOG ids in index.html
 const LEGEND_IDS = [101, 102, 103, 104];   // must match LEGENDS ids in index.html
@@ -59,7 +53,43 @@ function cleanName(n) {
   return String(n || '').replace(/[<>&"'`]/g, '').trim().slice(0, 20) || 'Runner';
 }
 
-/* Fixed world sent to every player (normal + hidden). Legendary are live on the server. */
+/* ============ WORLD GENERATION ============
+   Seeded, so the layout is identical for every player and every restart.
+   All spots lie within MAX_R metres of the campus centre. */
+const SEED = parseInt(process.env.SEED, 10) || 42;
+const MAX_R = 200;      // metres from campus centre
+const MIN_GAP = 30;     // metres between any two spots
+const COUNTS = { normal: 20, hidden: 4, legend: 6 };
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rnd = mulberry32(SEED);
+const placed = [];
+
+function placeSpots(count) {
+  const out = [];
+  for (let n = 0; n < count; n++) {
+    for (let tries = 0; tries < 1000; tries++) {
+      const ang = rnd() * Math.PI * 2;
+      const rad = Math.sqrt(rnd()) * MAX_R;
+      const x = Math.round(Math.cos(ang) * rad), y = Math.round(Math.sin(ang) * rad);
+      const ok = placed.every(function (p) { return Math.hypot(p[0] - x, p[1] - y) >= MIN_GAP; });
+      if (ok) { placed.push([x, y]); out.push([x, y]); break; }
+    }
+  }
+  return out;
+}
+
+const HIDDEN_SPOTS = placeSpots(COUNTS.hidden);
+const LEGEND_SPOTS = placeSpots(COUNTS.legend);
+const NORMAL_SPOTS = placeSpots(COUNTS.normal);
+
 const WORLD = [];
 NORMAL_SPOTS.forEach(function (s, i) {
   const p = toPos(s);

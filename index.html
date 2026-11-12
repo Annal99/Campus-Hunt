@@ -544,13 +544,10 @@ function onOrient(e){
   var diff = ((h - heading + 540) % 360) - 180;
   setHeading(heading + diff*0.3);
 }
-function tiltHeading(a,b,g){
-  var d=Math.PI/180,x=b*d,y=g*d,z=a*d;
-  var cY=Math.cos(y),cZ=Math.cos(z),sX=Math.sin(x),sY=Math.sin(y),sZ=Math.sin(z);
-  var Vx=-cZ*sY-sZ*sX*cY, Vy=-sZ*sY+cZ*sX*cY;
-  var h=Math.atan(Vx/Vy);
-  if(Vy<0)h+=Math.PI; else if(Vx<0)h+=2*Math.PI;
-  return h/d;
+function bindCompass(){
+  if (compassBound) return; compassBound = true;
+  window.addEventListener('deviceorientationabsolute', onOrient, true);
+  window.addEventListener('deviceorientation', onOrient, true);
 }
 function onOrient(e){
   var h=null;

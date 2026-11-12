@@ -524,6 +524,7 @@ if (DEV){
 }
 
 /* ================= COMPASS ================= */
+/* ================= COMPASS ================= */
 var compassOn = false, compassBound = false, compassAsked = false;
 var needPerm = !!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function');
 function tiltHeading(alpha,beta,gamma){
@@ -548,27 +549,6 @@ function bindCompass(){
   if (compassBound) return; compassBound = true;
   window.addEventListener('deviceorientationabsolute', onOrient, true);
   window.addEventListener('deviceorientation', onOrient, true);
-}
-function onOrient(e){
-  var h=null;
-  if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading)) h=e.webkitCompassHeading;
-  else if(e.alpha!=null&&e.beta!=null&&e.gamma!=null&&(e.absolute||e.type==='deviceorientationabsolute')) h=tiltHeading(e.alpha,e.beta,e.gamma);
-  if(h===null||isNaN(h)) return;
-  var diff=((h-heading+540)%360)-180;
-  heading=((heading+diff*0.3)%360+360)%360; markDirty();
-}
-var compassBound=false;
-function bindCompass(){
-  if(compassBound) return; compassBound=true;
-  window.addEventListener('deviceorientationabsolute',onOrient,true);
-  window.addEventListener('deviceorientation',onOrient,true);
-}
-if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
-  document.addEventListener('click',function(){
-    if(compassBound) return;
-    DeviceOrientationEvent.requestPermission().then(function(r){ if(r==='granted') bindCompass(); }).catch(function(){});
-  });
-} else bindCompass();
 }
 function askCompass(){
   if (compassBound) return;

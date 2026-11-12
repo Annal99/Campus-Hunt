@@ -162,7 +162,9 @@ nav button.active{color:#fff;border-top-color:var(--red)}
 .sbody{flex:1;min-width:0}.sbody p{margin:3px 0 8px;font-size:13px;color:var(--mut)}
 .srow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .price{font-weight:900;margin-right:auto}
-div[hidden],button[hidden],canvas[hidden],section[hidden],span[hidden]{display:none !important}
+[hidden],div[hidden],button[hidden],canvas[hidden],section[hidden],span[hidden]{display:none !important}
+/* remove arrows and demo toggle for the real, walk-around version */
+#dpad,.dpad,#demoToggle,label:has(#demoToggle){display:none !important}
 </style>
 </head>
 <body>

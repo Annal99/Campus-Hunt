@@ -383,7 +383,7 @@ function visibleInAR(t, d){
 }
 function addLegend(l){
   if (!l || !SHOE[l.shoeId] || LEG['L'+l.id]) return;
-  LEG['L'+l.id] = {id:'L'+l.id, sid:l.id, kind:'legend', shoeId:l.shoeId, lat:l.lat, lng:l.lng, expires:Date.now()+(+l.left||0)};
+  LEG['L'+l.id] = {id:'L'+l.id, sid:l.id, kind:'legend', shoeId:l.shoeId, lat:l.lat, lng:l.lng, expires:Date.now()+(+l.left||0), srv:true};
 }
 
 /* ================= MAP (Legendary only) ================= */
@@ -486,7 +486,14 @@ function onNet(m){
 setInterval(function(){ send({t:'pos', lat:player.lat, lng:player.lng}); }, 3000);
 
 /* ================= GPS ================= */
-function setPlayer(p){ player = {lat:p.lat, lng:p.lng}; firstFix = true; moveMap(); status(); markDirty(); }
+var TEST = /[?&]test=1/.test(location.search), testOff = null;
+function setPlayer(p){
+  if (TEST){
+    if (!testOff) testOff = {lat:p.lat-CENTER.lat, lng:p.lng-CENTER.lng};
+    p = {lat:p.lat-testOff.lat, lng:p.lng-testOff.lng};
+  }
+  player = {lat:p.lat, lng:p.lng}; firstFix = true; moveMap(); status(); markDirty();
+}
 function startGPS(){
   if (!navigator.geolocation){ $('status').textContent = '⚠️ GPS not supported on this device'; return; }
   navigator.geolocation.watchPosition(function(pos){
@@ -537,10 +544,34 @@ function onOrient(e){
   var diff = ((h - heading + 540) % 360) - 180;
   setHeading(heading + diff*0.3);
 }
+function tiltHeading(a,b,g){
+  var d=Math.PI/180,x=b*d,y=g*d,z=a*d;
+  var cY=Math.cos(y),cZ=Math.cos(z),sX=Math.sin(x),sY=Math.sin(y),sZ=Math.sin(z);
+  var Vx=-cZ*sY-sZ*sX*cY, Vy=-sZ*sY+cZ*sX*cY;
+  var h=Math.atan(Vx/Vy);
+  if(Vy<0)h+=Math.PI; else if(Vx<0)h+=2*Math.PI;
+  return h/d;
+}
+function onOrient(e){
+  var h=null;
+  if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading)) h=e.webkitCompassHeading;
+  else if(e.alpha!=null&&e.beta!=null&&e.gamma!=null&&(e.absolute||e.type==='deviceorientationabsolute')) h=tiltHeading(e.alpha,e.beta,e.gamma);
+  if(h===null||isNaN(h)) return;
+  var diff=((h-heading+540)%360)-180;
+  heading=((heading+diff*0.3)%360+360)%360; markDirty();
+}
+var compassBound=false;
 function bindCompass(){
-  if (compassBound) return; compassBound = true;
-  window.addEventListener('deviceorientationabsolute', onOrient, true);
-  window.addEventListener('deviceorientation', onOrient, true);
+  if(compassBound) return; compassBound=true;
+  window.addEventListener('deviceorientationabsolute',onOrient,true);
+  window.addEventListener('deviceorientation',onOrient,true);
+}
+if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
+  document.addEventListener('click',function(){
+    if(compassBound) return;
+    DeviceOrientationEvent.requestPermission().then(function(r){ if(r==='granted') bindCompass(); }).catch(function(){});
+  });
+} else bindCompass();
 }
 function askCompass(){
   if (compassBound) return;

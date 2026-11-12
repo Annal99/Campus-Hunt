@@ -691,7 +691,7 @@ function status(){
   var l2;
   if (!SPOTS.length && !Object.keys(LEG).length) l2 = Net.online ? 'Loading campus…' : 'Connecting to campus server…';
   else if (minD > FAR_WARN) l2 = '📍 You are ' + (minD/1000).toFixed(1) + ' km from the campus shoes';
-  else l2 = near ? '👟 ' + near + ' shoe(s) close. Look around!' : 'Walk around campus to find shoes';
+  else l2 = 'Walk around campus and look through your camera 📷';
   if (gpsAcc !== null && !DEV) l2 += ' · GPS ±' + Math.round(gpsAcc) + ' m';
   st.textContent = l1 + '\n' + l2;
 }
